@@ -758,7 +758,7 @@ function App() {
                           </div>
                           
                           {/* Credits Hover Card */}
-                          <div className="absolute top-full mt-2 right-[120%] w-64 bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                          <div className="absolute top-full mt-2 right-[120%] w-30 bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                             <div className="text-sm space-y-2">
                               {dayTransactions.credits.map((transaction) => (
                                 <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
@@ -802,7 +802,7 @@ function App() {
                           </div>
 
                           {/* Debits Hover Card */}
-                          <div className="absolute top-full mt-2 left-[120%] w-64 bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                          <div className="absolute top-full mt-2 left-[120%] w-30 bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
                             <div className="text-sm space-y-2">
                               {dayTransactions.debits.map((transaction) => (
                                 <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
