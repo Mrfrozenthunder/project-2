@@ -59,7 +59,10 @@ function App() {
   const debitFilterRef = useRef<HTMLDivElement>(null);
 
   // Add new state for active view
-  const [timelineView, setTimelineView] = useState<'timeline' | 'activity'>('timeline');
+  const [timelineView, setTimelineView] = useState<'timeline' | 'activity' | 'summary'>('timeline');
+
+  // Add these new states for summary filters
+  const [summaryTransactionType, setSummaryTransactionType] = useState<'all' | 'credit' | 'debit'>('all');
 
   // Load data from Supabase
   useEffect(() => {
@@ -747,6 +750,53 @@ function App() {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
+    });
+  };
+
+  // Add this helper function to group transactions by year and month
+  const getGroupedByMonthTransactions = () => {
+    const grouped = transactions.reduce((acc, transaction) => {
+      if (summaryTransactionType !== 'all' && transaction.type !== summaryTransactionType) {
+        return acc;
+      }
+
+      const date = new Date(transaction.date);
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      
+      const key = `${year}-${month}`;
+      if (!acc[key]) {
+        acc[key] = {
+          year,
+          month,
+          credits: [],
+          debits: [],
+          totalCredits: 0,
+          totalDebits: 0
+        };
+      }
+      
+      if (transaction.type === 'credit') {
+        acc[key].credits.push(transaction);
+        acc[key].totalCredits += Number(transaction.amount);
+      } else {
+        acc[key].debits.push(transaction);
+        acc[key].totalDebits += Number(transaction.amount);
+      }
+      
+      return acc;
+    }, {} as Record<string, {
+      year: number;
+      month: number;
+      credits: Transaction[];
+      debits: Transaction[];
+      totalCredits: number;
+      totalDebits: number;
+    }>);
+
+    return Object.values(grouped).sort((a, b) => {
+      if (a.year !== b.year) return b.year - a.year;
+      return b.month - a.month;
     });
   };
 
@@ -1632,6 +1682,16 @@ function App() {
               Transaction Timeline
             </button>
             <button
+              onClick={() => setTimelineView('summary')}
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                timelineView === 'summary'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Monthly Summary
+            </button>
+            <button
               onClick={() => setTimelineView('activity')}
               className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
                 timelineView === 'activity'
@@ -1769,7 +1829,7 @@ function App() {
                 </div>
               </div>
             </>
-          ) : (
+          ) : timelineView === 'activity' ? (
             <div className="space-y-4">
               {logs.length > 0 ? (
                 logs.map((log) => (
@@ -1786,6 +1846,128 @@ function App() {
               ) : (
                 <div className="text-center text-gray-500">No activity logs yet</div>
               )}
+            </div>
+          ) : (
+            // New Summary view with rows
+            <div className="space-y-6">
+              {/* Filter Controls */}
+              <div className="flex justify-end gap-2 mb-4">
+                <button
+                  onClick={() => setSummaryTransactionType('all')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                    summaryTransactionType === 'all'
+                      ? 'bg-gray-200 text-gray-800'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setSummaryTransactionType('credit')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                    summaryTransactionType === 'credit'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Credits Only
+                </button>
+                <button
+                  onClick={() => setSummaryTransactionType('debit')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                    summaryTransactionType === 'debit'
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Debits Only
+                </button>
+              </div>
+
+              {/* Transactions Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Date</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Description</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Category</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Partner</th>
+                      <th className="px-4 py-2 text-right text-sm font-medium text-gray-500">Amount</th>
+                      <th className="px-4 py-2 text-center text-sm font-medium text-gray-500">Type</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {getGroupedByMonthTransactions().map((monthData) => (
+                      <React.Fragment key={`${monthData.year}-${monthData.month}`}>
+                        {/* Month Header */}
+                        <tr className="bg-gray-50">
+                          <td colSpan={6} className="px-4 py-3 font-semibold text-gray-700">
+                            {new Date(monthData.year, monthData.month).toLocaleString('default', { 
+                              month: 'long', 
+                              year: 'numeric' 
+                            })}
+                          </td>
+                        </tr>
+                        
+                        {/* Transactions */}
+                        {[...monthData.credits, ...monthData.debits]
+                          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                          .map((transaction) => (
+                            <tr key={transaction.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-2 text-sm text-gray-600">
+                                {formatDate(transaction.date)}
+                              </td>
+                              <td className="px-4 py-2 text-sm text-gray-600">
+                                {transaction.description}
+                              </td>
+                              <td className="px-4 py-2 text-sm text-gray-600">
+                                {transaction.category}
+                              </td>
+                              <td className="px-4 py-2 text-sm text-gray-600">
+                                {partners.find(p => p.id === transaction.partner_id)?.name}
+                              </td>
+                              <td className={`px-4 py-2 text-sm font-medium text-right ${
+                                transaction.type === 'credit' ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {formatToLakhs(Number(transaction.amount))}
+                              </td>
+                              <td className="px-4 py-2 text-sm text-center">
+                                <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                                  transaction.payment_type === 'White' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-800 text-white'
+                                }`}>
+                                  {transaction.payment_type}
+                                </span>
+                              </td>
+                            </tr>
+                        ))}
+                        
+                        {/* Month Summary */}
+                        <tr className="bg-gray-50">
+                          <td colSpan={4} className="px-4 py-2 text-sm font-medium text-gray-600">
+                            Monthly Total
+                          </td>
+                          <td className="px-4 py-2 text-sm font-medium text-right">
+                            Credits: <span className="text-green-600">{formatToLakhs(monthData.totalCredits)}</span>
+                            <br />
+                            Debits: <span className="text-red-600">{formatToLakhs(monthData.totalDebits)}</span>
+                          </td>
+                          <td className="px-4 py-2 text-sm font-medium text-right">
+                            Net: <span className={monthData.totalCredits - monthData.totalDebits >= 0 
+                              ? 'text-green-600' 
+                              : 'text-red-600'
+                            }>
+                              {formatToLakhs(monthData.totalCredits - monthData.totalDebits)}
+                            </span>
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
