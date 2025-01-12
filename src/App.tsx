@@ -800,6 +800,60 @@ function App() {
     });
   };
 
+  // Add these helper functions for balance calculations
+  const calculateTodayBalance = (transactions: Transaction[]) => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Filter transactions up to today
+    const transactionsUntilToday = transactions.filter(t => t.date <= today);
+    
+    const credits = transactionsUntilToday.filter(t => t.type === 'credit');
+    const debits = transactionsUntilToday.filter(t => t.type === 'debit');
+    
+    const totalCredits = credits.reduce((sum, t) => sum + Number(t.amount), 0);
+    const totalDebits = debits.reduce((sum, t) => sum + Number(t.amount), 0);
+    
+    return totalCredits - totalDebits;
+  };
+
+  const calculatePoolBalance = (transactions: Transaction[], poolType: 'White' | 'Black') => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Filter transactions by pool type and up to today
+    const poolTransactions = transactions.filter(t => 
+      t.payment_type === poolType && t.date <= today
+    );
+    
+    const credits = poolTransactions.filter(t => t.type === 'credit');
+    const debits = poolTransactions.filter(t => t.type === 'debit');
+    
+    const totalCredits = credits.reduce((sum, t) => sum + Number(t.amount), 0);
+    const totalDebits = debits.reduce((sum, t) => sum + Number(t.amount), 0);
+    
+    return totalCredits - totalDebits;
+  };
+
+  // Update the White and Black Pool balance calculations
+  const calculateTotalPoolBalance = (transactions: Transaction[], poolType: 'White' | 'Black') => {
+    const poolTransactions = transactions.filter(t => t.payment_type === poolType);
+    
+    const credits = poolTransactions.filter(t => t.type === 'credit');
+    const debits = poolTransactions.filter(t => t.type === 'debit');
+    
+    const totalCredits = credits.reduce((sum, t) => sum + Number(t.amount), 0);
+    const totalDebits = debits.reduce((sum, t) => sum + Number(t.amount), 0);
+    
+    return {
+      totalCredits,
+      totalDebits,
+      balance: totalCredits - totalDebits
+    };
+  };
+
+  // Update the derived values
+  const whiteTotals = calculateTotalPoolBalance(transactions, 'White');
+  const blackTotals = calculateTotalPoolBalance(transactions, 'Black');
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto p-6">
@@ -830,30 +884,110 @@ function App() {
           
           {/* Combined Summary */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-6">
-              <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Combined Pool Balance</p>
-                <p className={`text-3xl font-bold ${totalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {/* Combined Pool Balance */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6">
+              <h2 className="text-xl font-semibold text-blue-800 mb-4 text-center">Combined Pool Balance</h2>
+              <div className="space-y-2 text-center">
+                <p className={`text-2xl font-bold ${totalBalance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
                   {formatToLakhs(totalBalance)}
                 </p>
-                <div className="mt-2 text-sm text-gray-500">
-                  <div>Credits: <span className="text-green-600">{formatToLakhs(totalCredits)}</span></div>
-                  <div>Debits: <span className="text-red-600">{formatToLakhs(totalDebits)}</span></div>
+                <div className="text-sm text-blue-700">
+                  Credits: <span className="text-blue-600">{formatToLakhs(totalCredits)}</span>
+                  <br />
+                  Debits: <span className="text-red-600">{formatToLakhs(totalDebits)}</span>
+                </div>
+                <div className="mt-4 pt-4 border-t border-blue-200">
+                  <p className="text-sm font-medium text-blue-700">Today's Balance</p>
+                  <p className={`text-lg font-semibold ${
+                    calculateTodayBalance(transactions) >= 0 ? 'text-blue-600' : 'text-red-600'
+                  }`}>
+                    {formatToLakhs(calculateTodayBalance(transactions))}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-6">
-              <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Combined Runway</p>
+            {/* White Pool Balance */}
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6">
+              <h2 className="text-xl font-semibold text-green-800 mb-4 text-center">White Pool Balance</h2>
+              <div className="space-y-2 text-center">
+                <p className={`text-2xl font-bold ${whiteTotals.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatToLakhs(whiteTotals.balance)}
+                </p>
+                <div className="text-sm text-green-700">
+                  Credits: <span className="text-green-600">{formatToLakhs(whiteTotals.totalCredits)}</span>
+                  <br />
+                  Debits: <span className="text-red-600">{formatToLakhs(whiteTotals.totalDebits)}</span>
+                </div>
+                <div className="mt-4 pt-4 border-t border-green-200">
+                  <p className="text-sm font-medium text-green-700">Today's White Balance</p>
+                  <p className={`text-lg font-semibold ${
+                    calculatePoolBalance(transactions, 'White') >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {formatToLakhs(calculatePoolBalance(transactions, 'White'))}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Black Pool Balance */}
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6">
+              <h2 className="text-xl font-semibold text-gray-100 mb-4 text-center">Black Pool Balance</h2>
+              <div className="space-y-2 text-center">
+                <p className={`text-2xl font-bold ${blackTotals.balance >= 0 ? 'text-gray-100' : 'text-red-400'}`}>
+                  {formatToLakhs(blackTotals.balance)}
+                </p>
+                <div className="text-sm text-gray-300">
+                  Credits: <span className="text-gray-100">{formatToLakhs(blackTotals.totalCredits)}</span>
+                  <br />
+                  Debits: <span className="text-red-400">{formatToLakhs(blackTotals.totalDebits)}</span>
+                </div>
+                <div className="mt-4 pt-4 border-t border-gray-700">
+                  <p className="text-sm font-medium text-gray-300">Today's Black Balance</p>
+                  <p className={`text-lg font-semibold ${
+                    calculatePoolBalance(transactions, 'Black') >= 0 ? 'text-gray-100' : 'text-red-400'
+                  }`}>
+                    {formatToLakhs(calculatePoolBalance(transactions, 'Black'))}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Runway Sections */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            {/* Combined Runway */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6">
+              <div className="text-center text-blue-800">
+                <p className="text-sm text-blue-700 mb-1">Combined Runway</p>
                 <RunwayDisplay runway={runway} />
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-6">
+            {/* White Runway */}
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6">
+              <div className="text-center text-green-800">
+                <p className="text-sm text-green-700 mb-1">White Runway</p>
+                <RunwayDisplay runway={calculateRunway('White')} />
+              </div>
+            </div>
+
+            {/* Black Runway */}
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6">
+              <div className="text-center text-gray-100">
+                <p className="text-sm text-gray-300 mb-1">Black Runway</p>
+                <RunwayDisplay runway={calculateRunway('Black')} />
+              </div>
+            </div>
+          </div>
+
+          {/* Future Needs Sections */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            {/* Combined Future Needs */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6">
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Combined Future Needs</p>
-                <p className="text-3xl font-bold text-orange-500">{futureNeeds.length} dates</p>
+                <p className="text-sm text-blue-700 mb-1">Combined Future Needs</p>
+                <p className="text-3xl font-bold text-blue-600">{futureNeeds.length} dates</p>
                 <div className="mt-2 h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
                      style={{ scrollbarWidth: 'thin' }}>
                   {futureNeeds.map((need, index) => (
@@ -867,124 +1001,41 @@ function App() {
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* White and Black Summaries */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* White Pool Summary */}
+            {/* White Future Needs */}
             <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6">
-              <div className="text-center mb-4">
-                <h3 className="text-lg font-semibold text-green-800">White Pool Summary</h3>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="text-sm text-gray-600 mb-1">Balance</p>
-                  {(() => {
-                    const whiteSummary = calculateSummary(getFilteredTransactions(transactions, [], [], ['White']));
-                    return (
-                      <>
-                        <p className={`text-xl font-bold ${whiteSummary.totalBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {formatToLakhs(whiteSummary.totalBalance)}
-                        </p>
-                        <div className="mt-2 text-xs text-gray-500">
-                          <div>Credits: <span className="text-green-600">{formatToLakhs(whiteSummary.totalCredits)}</span></div>
-                          <div>Debits: <span className="text-red-600">{formatToLakhs(whiteSummary.totalDebits)}</span></div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-600 mb-1">Runway</p>
-                  {(() => {
-                    const whiteRunway = calculateRunway('White');
-                    return (
-                      <>
-                        <RunwayDisplay runway={whiteRunway} />
-                      </>
-                    );
-                  })()}
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-600 mb-1">Future Needs</p>
-                  {(() => {
-                    const whiteFutureNeeds = calculateFutureNeeds('White');
-                    return (
-                      <>
-                        <p className="text-xl font-bold text-orange-500">{whiteFutureNeeds.length} dates</p>
-                        <div className="mt-1 h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
-                             style={{ scrollbarWidth: 'thin' }}>
-                          {whiteFutureNeeds.map((need, index) => (
-                            <div key={index} className="p-0.5">
-                              <span className="text-gray-600">{formatDate(need.date)}:</span>
-                              <span className="text-red-600 font-medium ml-1">
-                                {formatToLakhs(need.amountNeeded)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    );
-                  })()}
+              <div className="text-center">
+                <p className="text-sm text-green-700 mb-1">White Future Needs</p>
+                <p className="text-3xl font-bold text-green-600">{calculateFutureNeeds('White').length} dates</p>
+                <div className="mt-2 h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
+                     style={{ scrollbarWidth: 'thin' }}>
+                  {calculateFutureNeeds('White').map((need, index) => (
+                    <div key={index} className="p-0.5">
+                      <span className="text-gray-600">{formatDate(need.date)}:</span>
+                      <span className="text-red-600 font-medium ml-1">
+                        {formatToLakhs(need.amountNeeded)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Black Pool Summary */}
+            {/* Black Future Needs */}
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6">
-              <div className="text-center mb-4">
-                <h3 className="text-lg font-semibold text-white">Black Pool Summary</h3>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <p className="text-sm text-gray-400 mb-1">Balance</p>
-                  {(() => {
-                    const blackSummary = calculateSummary(getFilteredTransactions(transactions, [], [], ['Black']));
-                    return (
-                      <>
-                        <p className={`text-xl font-bold ${blackSummary.totalBalance >= 0 ? 'text-white' : 'text-red-400'}`}>
-                          {formatToLakhs(blackSummary.totalBalance)}
-                        </p>
-                        <div className="mt-2 text-xs text-gray-400">
-                          <div>Credits: <span className="text-green-400">{formatToLakhs(blackSummary.totalCredits)}</span></div>
-                          <div>Debits: <span className="text-red-400">{formatToLakhs(blackSummary.totalDebits)}</span></div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-400 mb-1">Runway</p>
-                  {(() => {
-                    const blackRunway = calculateRunway('Black');
-                    return (
-                      <>
-                        <RunwayDisplay runway={blackRunway} />
-                      </>
-                    );
-                  })()}
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-400 mb-1">Future Needs</p>
-                  {(() => {
-                    const blackFutureNeeds = calculateFutureNeeds('Black');
-                    return (
-                      <>
-                        <p className="text-xl font-bold text-red-400">{blackFutureNeeds.length} dates</p>
-                        <div className="mt-1 h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
-                             style={{ scrollbarWidth: 'thin' }}>
-                          {blackFutureNeeds.map((need, index) => (
-                            <div key={index} className="p-0.5">
-                              <span className="text-gray-400">{formatDate(need.date)}:</span>
-                              <span className="text-red-400 font-medium ml-1">
-                                {formatToLakhs(need.amountNeeded)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    );
-                  })()}
+              <div className="text-center">
+                <p className="text-sm text-gray-300 mb-1">Black Future Needs</p>
+                <p className="text-3xl font-bold text-gray-100">{calculateFutureNeeds('Black').length} dates</p>
+                <div className="mt-1 h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
+                     style={{ scrollbarWidth: 'thin' }}>
+                  {calculateFutureNeeds('Black').map((need, index) => (
+                    <div key={index} className="p-0.5">
+                      <span className="text-gray-400">{formatDate(need.date)}:</span>
+                      <span className="text-red-400 font-medium ml-1">
+                        {formatToLakhs(need.amountNeeded)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
