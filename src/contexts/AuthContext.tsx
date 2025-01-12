@@ -18,14 +18,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          // If no session, ensure we're completely logged out
+          await supabase.auth.clearSession();
+          localStorage.clear();
+          sessionStorage.clear();
+        }
+        
+        setUser(session?.user ?? null);
+        setLoading(false);
+      } catch (error) {
+        console.error('Session check error:', error);
+        setUser(null);
+        setLoading(false);
+      }
+    };
+
+    checkSession();
 
     // Listen for changes on auth state
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
+      if (!session) {
+        // Clear everything when session ends
+        localStorage.clear();
+        sessionStorage.clear();
+        await supabase.auth.clearSession();
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -48,8 +71,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      // First clear all local storage and session storage
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut({
+        scope: 'local' // This ensures we clear local session data
+      });
+      if (error) throw error;
+
+      // Clear the user state
+      setUser(null);
+
+      // Clear any Supabase storage
+      await supabase.auth.clearSession();
+
+      // Force navigation to login page
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // As a fallback, force reload
+      window.location.reload();
+    }
   };
 
   return (
