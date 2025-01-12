@@ -693,6 +693,157 @@ function App() {
     </>
   );
 
+  // Add this new component
+  const TransactionTimeline = ({ transactions }: { transactions: Transaction[] }) => {
+    // Group transactions by date
+    const groupedTransactions = transactions.reduce((acc, transaction) => {
+      const date = transaction.date;
+      if (!acc[date]) {
+        acc[date] = { credits: [], debits: [] };
+      }
+      if (transaction.type === 'credit') {
+        acc[date].credits.push(transaction);
+      } else {
+        acc[date].debits.push(transaction);
+      }
+      return acc;
+    }, {} as Record<string, { credits: Transaction[], debits: Transaction[] }>);
+
+    // Convert to sorted array
+    const sortedDates = Object.keys(groupedTransactions).sort((a, b) => 
+      new Date(a).getTime() - new Date(b).getTime()
+    );
+
+    return (
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <h2 className="text-xl font-semibold text-gray-800 mb-6">Transaction Timeline</h2>
+        
+        {/* Headers */}
+        <div className="grid grid-cols-[1fr,auto,1fr] gap-4 mb-6">
+          <div className="text-right text-lg font-medium text-green-600">Credit Flow</div>
+          <div></div>
+          <div className="text-left text-lg font-medium text-red-600">Debit Flow</div>
+        </div>
+
+        <div className="relative">
+          {/* Center line */}
+          <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-200 transform -translate-x-1/2" />
+          
+          {/* Transactions */}
+          <div className="relative space-y-8">
+            {sortedDates.map((date) => {
+              const dayTransactions = groupedTransactions[date];
+              const totalCredits = dayTransactions.credits.reduce((sum, t) => sum + Number(t.amount), 0);
+              const totalDebits = dayTransactions.debits.reduce((sum, t) => sum + Number(t.amount), 0);
+              
+              return (
+                <div key={date} className="relative">
+                  {/* Date marker */}
+                  <div className="absolute left-1/2 transform -translate-x-1/2 -top-3 bg-white px-2 text-xs text-gray-500 z-10">
+                    {formatDate(date)}
+                  </div>
+
+                  <div className="grid grid-cols-[1fr,auto,1fr] gap-4 relative">
+                    {/* Credits */}
+                    <div className="flex justify-end items-center">
+                      {dayTransactions.credits.length > 0 && (
+                        <div className="group relative">
+                          <div className="flex items-center">
+                            <div className="bg-green-100 text-green-800 px-3 py-2 rounded-lg flex items-center justify-center cursor-pointer transform transition-transform group-hover:scale-105">
+                              <span className="font-medium text-sm">
+                                {formatToLakhs(totalCredits)}
+                              </span>
+                            </div>
+                            <div className="w-4 h-0.5 bg-gray-200" />
+                          </div>
+                          
+                          {/* Credits Hover Card */}
+                          <div className="absolute top-full mt-2 right-[120%] w-64 bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                            <div className="text-sm space-y-2">
+                              {dayTransactions.credits.map((transaction) => (
+                                <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
+                                  <p className="font-medium text-gray-800">
+                                    {formatToLakhs(Number(transaction.amount))}
+                                  </p>
+                                  <p className="text-gray-600">{transaction.description}</p>
+                                  <p className="text-gray-600">{transaction.category}</p>
+                                  <p className="text-gray-600">
+                                    {partners.find(p => p.id === transaction.partner_id)?.name}
+                                  </p>
+                                  <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs ${
+                                    transaction.payment_type === 'White' 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : 'bg-gray-800 text-white'
+                                  }`}>
+                                    {transaction.payment_type}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Center point */}
+                    <div className="w-3 h-3 bg-gray-300 rounded-full self-center" />
+
+                    {/* Debits */}
+                    <div className="flex justify-start items-center">
+                      {dayTransactions.debits.length > 0 && (
+                        <div className="group relative">
+                          <div className="flex items-center">
+                            <div className="w-4 h-0.5 bg-gray-200" />
+                            <div className="bg-red-100 text-red-800 px-3 py-2 rounded-lg flex items-center justify-center cursor-pointer transform transition-transform group-hover:scale-105">
+                              <span className="font-medium text-sm">
+                                {formatToLakhs(totalDebits)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Debits Hover Card */}
+                          <div className="absolute top-full mt-2 left-[120%] w-64 bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                            <div className="text-sm space-y-2">
+                              {dayTransactions.debits.map((transaction) => (
+                                <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
+                                  <p className="font-medium text-gray-800">
+                                    {formatToLakhs(Number(transaction.amount))}
+                                  </p>
+                                  <p className="text-gray-600">{transaction.description}</p>
+                                  <p className="text-gray-600">{transaction.category}</p>
+                                  {transaction.files?.length > 0 && (
+                                    <button
+                                      onClick={() => handleViewFile(transaction)}
+                                      className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1 mt-1"
+                                    >
+                                      <FileText size={12} />
+                                      View Proof
+                                    </button>
+                                  )}
+                                  <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs ${
+                                    transaction.payment_type === 'White' 
+                                      ? 'bg-green-100 text-green-800' 
+                                      : 'bg-gray-800 text-white'
+                                  }`}>
+                                    {transaction.payment_type}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto p-6">
@@ -1524,7 +1675,7 @@ function App() {
                           {transaction.files?.length > 0 && (
                             <button
                               onClick={() => handleViewFile(transaction)}
-                              className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+                              className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1 mt-1"
                             >
                               <FileText size={16} />
                               View Proof
@@ -1560,8 +1711,11 @@ function App() {
           </div>
         </div>
 
+        {/* Timeline (new position) */}
+        <TransactionTimeline transactions={transactions} />
+
         {/* Activity Log */}
-        <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Activity Log</h2>
           <div className="space-y-4">
             {logs.map((log) => (
