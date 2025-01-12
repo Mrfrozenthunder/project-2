@@ -3,7 +3,7 @@ import { PlusCircle, MinusCircle, IndianRupee, Calendar, Eye, Trash2, Filter, So
 import { useAuth } from './contexts/AuthContext';
 import { Auth } from './components/Auth';
 import { supabase } from './lib/supabase';
-import type { Partner, Transaction, FileRecord, LogEntry, RunwayInfo, FundingNeed } from './types/database';
+import type { Partner, Transaction, FileRecord, LogEntry, RunwayInfo, FundingNeed, ActivityLog } from './types/database';
 
 // Add file size constant at the top with other constants
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
@@ -14,7 +14,7 @@ function App() {
   // Core state
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
 
   // Form state
   const [amount, setAmount] = useState('');
@@ -58,6 +58,9 @@ function App() {
   const debitSortRef = useRef<HTMLDivElement>(null);
   const debitFilterRef = useRef<HTMLDivElement>(null);
 
+  // Add new state for active view
+  const [timelineView, setTimelineView] = useState<'timeline' | 'activity'>('timeline');
+
   // Load data from Supabase
   useEffect(() => {
     if (!user) return;
@@ -84,6 +87,16 @@ function App() {
 
         if (transactionsError) throw transactionsError;
         setTransactions(transactionsData || []);
+
+        // Load activity logs
+        const { data: logsData, error: logsError } = await supabase
+          .from('activity_logs')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('timestamp', { ascending: false });
+
+        if (logsError) throw logsError;
+        setLogs(logsData || []);
       } catch (error) {
         console.error('Error loading data:', error);
       }
@@ -570,14 +583,27 @@ function App() {
   };
 
   // Add log entry
-  const addLogEntry = (action: string, details: string) => {
-    const newLog: LogEntry = {
-      id: crypto.randomUUID(),
-      timestamp: new Date(),
-      action,
-      details,
-    };
-    setLogs(prev => [newLog, ...prev]);
+  const addLogEntry = async (action: string, details: string) => {
+    if (!user) return;
+
+    try {
+      const { data: newLog, error } = await supabase
+        .from('activity_logs')
+        .insert({
+          user_id: user.id,
+          action,
+          details,
+          timestamp: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setLogs(prev => [newLog, ...prev]);
+    } catch (error) {
+      console.error('Error adding log entry:', error);
+    }
   };
 
   // Get filtered and sorted transactions
@@ -693,155 +719,35 @@ function App() {
     </>
   );
 
-  // Add this new component
-  const TransactionTimeline = ({ transactions }: { transactions: Transaction[] }) => {
-    // Group transactions by date
-    const groupedTransactions = transactions.reduce((acc, transaction) => {
-      const date = transaction.date;
-      if (!acc[date]) {
-        acc[date] = { credits: [], debits: [] };
-      }
-      if (transaction.type === 'credit') {
-        acc[date].credits.push(transaction);
-      } else {
-        acc[date].debits.push(transaction);
-      }
-      return acc;
-    }, {} as Record<string, { credits: Transaction[], debits: Transaction[] }>);
+  // Add these near your other derived values (where you have creditTransactions, debitTransactions, etc.)
+  const groupedTransactions = transactions.reduce((acc, transaction) => {
+    const date = transaction.date;
+    if (!acc[date]) {
+      acc[date] = { credits: [], debits: [] };
+    }
+    if (transaction.type === 'credit') {
+      acc[date].credits.push(transaction);
+    } else {
+      acc[date].debits.push(transaction);
+    }
+    return acc;
+  }, {} as Record<string, { credits: Transaction[], debits: Transaction[] }>);
 
-    // Convert to sorted array
-    const sortedDates = Object.keys(groupedTransactions).sort((a, b) => 
-      new Date(a).getTime() - new Date(b).getTime()
-    );
+  const sortedDates = Object.keys(groupedTransactions).sort((a, b) => 
+    new Date(a).getTime() - new Date(b).getTime()
+  );
 
-    return (
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-6">Transaction Timeline</h2>
-        
-        {/* Headers */}
-        <div className="grid grid-cols-[1fr,auto,1fr] gap-4 mb-6">
-          <div className="text-right text-lg font-medium text-green-600">Credit Flow</div>
-          <div></div>
-          <div className="text-left text-lg font-medium text-red-600">Debit Flow</div>
-        </div>
-
-        <div className="relative">
-          {/* Center line */}
-          <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-200 transform -translate-x-1/2" />
-          
-          {/* Transactions */}
-          <div className="relative space-y-8">
-            {sortedDates.map((date) => {
-              const dayTransactions = groupedTransactions[date];
-              const totalCredits = dayTransactions.credits.reduce((sum, t) => sum + Number(t.amount), 0);
-              const totalDebits = dayTransactions.debits.reduce((sum, t) => sum + Number(t.amount), 0);
-              
-              return (
-                <div key={date} className="relative">
-                  {/* Date marker */}
-                  <div className="absolute left-1/2 transform -translate-x-1/2 -top-3 bg-white px-2 text-xs text-gray-500 z-10">
-                    {formatDate(date)}
-                  </div>
-
-                  <div className="grid grid-cols-[1fr,auto,1fr] gap-4 relative">
-                    {/* Credits */}
-                    <div className="flex justify-end items-center">
-                      {dayTransactions.credits.length > 0 && (
-                        <div className="group relative">
-                          <div className="flex items-center">
-                            <div className="bg-green-100 text-green-800 px-3 py-2 rounded-lg flex items-center justify-center cursor-pointer transform transition-transform group-hover:scale-105">
-                              <span className="font-medium text-sm">
-                                {formatToLakhs(totalCredits)}
-                              </span>
-                            </div>
-                            <div className="w-4 h-0.5 bg-gray-200" />
-                          </div>
-                          
-                          {/* Credits Hover Card */}
-                          <div className="absolute top-full mt-2 right-[120%] w-30 bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                            <div className="text-sm space-y-2">
-                              {dayTransactions.credits.map((transaction) => (
-                                <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
-                                  <p className="font-medium text-gray-800">
-                                    {formatToLakhs(Number(transaction.amount))}
-                                  </p>
-                                  <p className="text-gray-600">{transaction.description}</p>
-                                  <p className="text-gray-600">{transaction.category}</p>
-                                  <p className="text-gray-600">
-                                    {partners.find(p => p.id === transaction.partner_id)?.name}
-                                  </p>
-                                  <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs ${
-                                    transaction.payment_type === 'White' 
-                                      ? 'bg-green-100 text-green-800' 
-                                      : 'bg-gray-800 text-white'
-                                  }`}>
-                                    {transaction.payment_type}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Center point */}
-                    <div className="w-3 h-3 bg-gray-300 rounded-full self-center" />
-
-                    {/* Debits */}
-                    <div className="flex justify-start items-center">
-                      {dayTransactions.debits.length > 0 && (
-                        <div className="group relative">
-                          <div className="flex items-center">
-                            <div className="w-4 h-0.5 bg-gray-200" />
-                            <div className="bg-red-100 text-red-800 px-3 py-2 rounded-lg flex items-center justify-center cursor-pointer transform transition-transform group-hover:scale-105">
-                              <span className="font-medium text-sm">
-                                {formatToLakhs(totalDebits)}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Debits Hover Card */}
-                          <div className="absolute top-full mt-2 left-[120%] w-30 bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                            <div className="text-sm space-y-2">
-                              {dayTransactions.debits.map((transaction) => (
-                                <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
-                                  <p className="font-medium text-gray-800">
-                                    {formatToLakhs(Number(transaction.amount))}
-                                  </p>
-                                  <p className="text-gray-600">{transaction.description}</p>
-                                  <p className="text-gray-600">{transaction.category}</p>
-                                  {transaction.files?.length > 0 && (
-                                    <button
-                                      onClick={() => handleViewFile(transaction)}
-                                      className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1 mt-1"
-                                    >
-                                      <FileText size={12} />
-                                      View Proof
-                                    </button>
-                                  )}
-                                  <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs ${
-                                    transaction.payment_type === 'White' 
-                                      ? 'bg-green-100 text-green-800' 
-                                      : 'bg-gray-800 text-white'
-                                  }`}>
-                                    {transaction.payment_type}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
+  // Add this helper function near your other formatters
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
   return (
@@ -1712,93 +1618,245 @@ function App() {
         </div>
 
         {/* Timeline (new position) */}
-        <TransactionTimeline transactions={transactions} />
-
-        {/* Activity Log */}
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Activity Log</h2>
-          <div className="space-y-4">
-            {logs.map((log) => (
-              <div key={log.id} className="flex items-start gap-4 text-sm">
-                <div className="text-gray-500 whitespace-nowrap">
-                  {formatDate(log.timestamp)}
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">{log.action}</span>
-                  <span className="text-gray-600"> - {log.details}</span>
+          {/* Tab Headers */}
+          <div className="flex gap-4 mb-6">
+            <button
+              onClick={() => setTimelineView('timeline')}
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                timelineView === 'timeline'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Transaction Timeline
+            </button>
+            <button
+              onClick={() => setTimelineView('activity')}
+              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+                timelineView === 'activity'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Activity Log
+            </button>
+          </div>
+
+          {/* Content */}
+          {timelineView === 'timeline' ? (
+            <>
+              {/* Headers */}
+              <div className="grid grid-cols-[1fr,auto,1fr] gap-4 mb-6">
+                <div className="text-right text-lg font-medium text-green-600">Credit Flow</div>
+                <div></div>
+                <div className="text-left text-lg font-medium text-red-600">Debit Flow</div>
+              </div>
+
+              <div className="relative">
+                {/* Center line */}
+                <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gray-200 transform -translate-x-1/2" />
+                
+                {/* Transactions */}
+                <div className="relative space-y-8">
+                  {sortedDates.map((date) => {
+                    const dayTransactions = groupedTransactions[date];
+                    const totalCredits = dayTransactions.credits.reduce((sum, t) => sum + Number(t.amount), 0);
+                    const totalDebits = dayTransactions.debits.reduce((sum, t) => sum + Number(t.amount), 0);
+                    
+                    return (
+                      <div key={date} className="relative">
+                        {/* Date marker */}
+                        <div className="absolute left-1/2 transform -translate-x-1/2 -top-3 bg-white px-2 text-xs text-gray-500 z-10">
+                          {formatDate(date)}
+                        </div>
+
+                        <div className="grid grid-cols-[1fr,auto,1fr] gap-4 relative">
+                          {/* Credits */}
+                          <div className="flex justify-end items-center">
+                            {dayTransactions.credits.length > 0 && (
+                              <div className="group relative">
+                                <div className="flex items-center">
+                                  <div className="bg-green-100 text-green-800 px-3 py-2 rounded-lg flex items-center justify-center cursor-pointer transform transition-transform group-hover:scale-105">
+                                    <span className="font-medium text-sm">
+                                      {formatToLakhs(totalCredits)}
+                                    </span>
+                                  </div>
+                                  <div className="w-4 h-0.5 bg-gray-200" />
+                                </div>
+                                
+                                {/* Credits Hover Card */}
+                                <div className="absolute top-full mt-2 right-[120%] w-30 bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                  <div className="text-sm space-y-2">
+                                    {dayTransactions.credits.map((transaction) => (
+                                      <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
+                                        <p className="font-medium text-gray-800">
+                                          {formatToLakhs(Number(transaction.amount))}
+                                        </p>
+                                        <p className="text-gray-600">{transaction.description}</p>
+                                        <p className="text-gray-600">{transaction.category}</p>
+                                        <p className="text-gray-600">
+                                          {partners.find(p => p.id === transaction.partner_id)?.name}
+                                        </p>
+                                        <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs ${
+                                          transaction.payment_type === 'White' 
+                                            ? 'bg-green-100 text-green-800' 
+                                            : 'bg-gray-800 text-white'
+                                        }`}>
+                                          {transaction.payment_type}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Center point */}
+                          <div className="w-3 h-3 bg-gray-300 rounded-full self-center" />
+
+                          {/* Debits */}
+                          <div className="flex justify-start items-center">
+                            {dayTransactions.debits.length > 0 && (
+                              <div className="group relative">
+                                <div className="flex items-center">
+                                  <div className="w-4 h-0.5 bg-gray-200" />
+                                  <div className="bg-red-100 text-red-800 px-3 py-2 rounded-lg flex items-center justify-center cursor-pointer transform transition-transform group-hover:scale-105">
+                                    <span className="font-medium text-sm">
+                                      {formatToLakhs(totalDebits)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Debits Hover Card */}
+                                <div className="absolute top-full mt-2 left-[120%] w-30 bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                  <div className="text-sm space-y-2">
+                                    {dayTransactions.debits.map((transaction) => (
+                                      <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
+                                        <p className="font-medium text-gray-800">
+                                          {formatToLakhs(Number(transaction.amount))}
+                                        </p>
+                                        <p className="text-gray-600">{transaction.description}</p>
+                                        <p className="text-gray-600">{transaction.category}</p>
+                                        {transaction.files?.length > 0 && (
+                                          <button
+                                            onClick={() => handleViewFile(transaction)}
+                                            className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1 mt-1"
+                                          >
+                                            <FileText size={16} />
+                                            View Proof
+                                          </button>
+                                        )}
+                                        <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs ${
+                                          transaction.payment_type === 'White' 
+                                            ? 'bg-green-100 text-green-800' 
+                                            : 'bg-gray-800 text-white'
+                                        }`}>
+                                          {transaction.payment_type}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <div className="space-y-4">
+              {logs.length > 0 ? (
+                logs.map((log) => (
+                  <div key={log.id} className="flex items-start gap-4 text-sm">
+                    <div className="text-gray-500 whitespace-nowrap">
+                      {formatDateTime(log.timestamp)}
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">{log.action}</span>
+                      <span className="text-gray-600"> - {log.details}</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-gray-500">No activity logs yet</div>
+              )}
+            </div>
+          )}
         </div>
-      </div>
 
-      {/* Add Partner Modal */}
-      {showAddPartner && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Add New Partner</h3>
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              if (newPartnerName.trim()) {
-                handleAddPartner(newPartnerName.trim());
-                setNewPartnerName('');
-                setShowAddPartner(false);
-              }
-            }}>
-              <input
-                type="text"
-                value={newPartnerName}
-                onChange={(e) => setNewPartnerName(e.target.value)}
-                placeholder="Enter partner name"
-                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 mb-4"
-                required
-              />
+        {/* Add Partner Modal */}
+        {showAddPartner && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Add New Partner</h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (newPartnerName.trim()) {
+                  handleAddPartner(newPartnerName.trim());
+                  setNewPartnerName('');
+                  setShowAddPartner(false);
+                }
+              }}>
+                <input
+                  type="text"
+                  value={newPartnerName}
+                  onChange={(e) => setNewPartnerName(e.target.value)}
+                  placeholder="Enter partner name"
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 mb-4"
+                  required
+                />
+                <div className="flex justify-end gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddPartner(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  >
+                    Add Partner
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Confirm Deletion</h3>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete this {showDeleteConfirm.type}? This action cannot be undone.
+              </p>
               <div className="flex justify-end gap-4">
                 <button
-                  type="button"
-                  onClick={() => setShowAddPartner(false)}
+                  onClick={() => setShowDeleteConfirm(null)}
                   className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  onClick={handleDeleteConfirm}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
                 >
-                  Add Partner
+                  Delete
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-semibold text-gray-900 mb-4">Confirm Deletion</h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this {showDeleteConfirm.type}? This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => setShowDeleteConfirm(null)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
-              >
-                Delete
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

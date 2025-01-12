@@ -47,3 +47,12 @@ export interface FundingNeed {
   date: string;
   amountNeeded: number;
 }
+
+export interface ActivityLog {
+  id: string;
+  user_id: string;
+  action: string;
+  details: string;
+  timestamp: string;
+  created_at: string;
+}
