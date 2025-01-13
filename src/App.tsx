@@ -5,6 +5,7 @@ import { Auth } from './components/Auth';
 import { supabase } from './lib/supabase';
 import type { Partner, Transaction, FileRecord, LogEntry, RunwayInfo, FundingNeed, ActivityLog } from './types/database';
 import { BackupRestore } from './components/BackupRestore';
+import { BalanceGraph } from './components/BalanceGraph';
 
 // Add file size constant at the top with other constants
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
@@ -67,7 +68,7 @@ function App() {
   const debitFilterRef = useRef<HTMLDivElement>(null);
 
   // Add new state for active view
-  const [timelineView, setTimelineView] = useState<'timeline' | 'activity' | 'summary'>('timeline');
+  const [timelineView, setTimelineView] = useState<'timeline' | 'activity' | 'summary' | 'graph'>('timeline');
 
   // Add these new states for summary filters
   const [summaryTransactionType, setSummaryTransactionType] = useState<'all' | 'credit' | 'debit'>('all');
@@ -1437,8 +1438,8 @@ function App() {
                       >
                         Black
                       </button>
-                    </div>
-                  </div>
+                </div>
+              </div>
               <div>
                 <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
                   Date
@@ -1836,36 +1837,46 @@ function App() {
         {/* Timeline (new position) */}
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           {/* Tab Headers */}
-          <div className="flex gap-4 mb-6">
+          <div className="flex gap-2 mb-6">
                       <button
               onClick={() => setTimelineView('timeline')}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${
                 timelineView === 'timeline'
-                  ? 'bg-blue-100 text-blue-700'
+                  ? 'bg-blue-100 text-blue-800'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              Transaction Timeline
+              Timeline
                       </button>
             <button
               onClick={() => setTimelineView('summary')}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${
                 timelineView === 'summary'
-                  ? 'bg-blue-100 text-blue-700'
+                  ? 'bg-blue-100 text-blue-800'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              Monthly Summary
+              Summary
+            </button>
+            <button
+              onClick={() => setTimelineView('graph')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                timelineView === 'graph'
+                  ? 'bg-blue-100 text-blue-800'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Balance Graph
             </button>
             <button
               onClick={() => setTimelineView('activity')}
-              className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${
                 timelineView === 'activity'
-                  ? 'bg-blue-100 text-blue-700'
+                  ? 'bg-blue-100 text-blue-800'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              Activity Log
+              Activity
             </button>
                   </div>
 
@@ -2021,7 +2032,7 @@ function App() {
                 <div className="text-center text-gray-500">No activity logs yet</div>
               )}
             </div>
-          ) : (
+          ) : timelineView === 'summary' ? (
             // New Summary view with rows
             <div className="space-y-6">
               {/* Filter Controls */}
@@ -2143,6 +2154,78 @@ function App() {
                 </table>
           </div>
         </div>
+          ) : timelineView === 'graph' ? (
+            <BalanceGraph transactions={transactions} />
+          ) : (
+            // Timeline view content (default)
+            <div>
+              {groupedTransactions.map((group) => (
+                <div key={group.date} className="mb-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Calendar className="text-gray-400" size={20} />
+                    <h3 className="text-lg font-medium text-gray-700">
+                      {formatDate(group.date)}
+                    </h3>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Credits */}
+                    <div className="flex justify-end items-center">
+                      {group.credits.length > 0 && (
+                        <div className="group relative inline-block">
+                          <div className="flex items-center">
+                            <div className="bg-green-100 text-green-800 px-3 py-2 rounded-lg flex items-center justify-center cursor-pointer transform transition-transform group-hover:scale-105">
+                              <span className="font-medium text-sm">
+                                {formatToLakhs(group.totalCredits)}
+                              </span>
+                            </div>
+                            <div className="w-4 h-0.5 bg-gray-200" />
+                          </div>
+
+                          {/* Credits Hover Card */}
+                          <div className={`${getHoverCardPosition(true)} w-40 max-h-[80vh] overflow-y-auto bg-white rounded-lg shadow-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity z-50 border border-gray-200 pointer-events-none`}>
+                            <div className="text-xs space-y-3">
+                              {group.credits.map((transaction) => (
+                                <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
+                                  {/* ... rest of credit transaction display ... */}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Debits */}
+                    <div className="flex justify-start items-center">
+                      {group.debits.length > 0 && (
+                        <div className="group relative inline-block">
+                          <div className="flex items-center">
+                            <div className="w-4 h-0.5 bg-gray-200" />
+                            <div className="bg-red-100 text-red-800 px-3 py-2 rounded-lg flex items-center justify-center cursor-pointer transform transition-transform group-hover:scale-105">
+                              <span className="font-medium text-sm">
+                                {formatToLakhs(group.totalDebits)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Debits Hover Card */}
+                          <div className={`${getHoverCardPosition(false)} w-40 max-h-[80vh] overflow-y-auto bg-white rounded-lg shadow-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity z-50 border border-gray-200 pointer-events-none`}>
+                            <div className="text-xs space-y-3">
+                              {group.debits.map((transaction) => (
+                                <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
+                                  {/* ... rest of debit transaction display ... */}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
       </div>
 
