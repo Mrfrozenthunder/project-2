@@ -12,8 +12,8 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
 // Add this helper function at the top of your file
 const getHoverCardPosition = (isCredit: boolean) => {
   return isCredit 
-    ? "absolute top-0 right-[120%] transform -translate-y-1/2" 
-    : "absolute top-0 left-[120%] transform -translate-y-1/2";
+    ? "absolute top-0 left-0 transform -translate-x-[calc(100%+8px)] -translate-y-1/2" 
+    : "absolute top-0 right-0 transform translate-x-[calc(100%+8px)] -translate-y-1/2";
 };
 
 function App() {
@@ -1901,7 +1901,7 @@ function App() {
                           {/* Credits */}
                           <div className="flex justify-end items-center">
                             {dayTransactions.credits.length > 0 && (
-                              <div className="group relative">
+                              <div className="group relative"> {/* Add relative positioning here */}
                                 <div className="flex items-center">
                                   <div className="bg-green-100 text-green-800 px-3 py-2 rounded-lg flex items-center justify-center cursor-pointer transform transition-transform group-hover:scale-105">
                                     <span className="font-medium text-sm">
@@ -1912,25 +1912,29 @@ function App() {
                                 </div>
                                 
                                 {/* Credits Hover Card */}
-                                <div className={`${getHoverCardPosition(true)} w-64 max-h-[300px] overflow-y-auto bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20`}>
-                                  <div className="text-sm space-y-2">
+                                <div className={`${getHoverCardPosition(true)} w-40 max-h-[80vh] overflow-y-auto bg-white rounded-lg shadow-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity z-50 border border-gray-200`}>
+                                  <div className="text-xs space-y-3">
                                     {dayTransactions.credits.map((transaction) => (
                                       <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
-                                        <p className="font-medium text-gray-800">
-                                          {formatToLakhs(Number(transaction.amount))}
+                                        <div className="flex justify-between items-start mb-1">
+                                          <p className="font-medium text-gray-800">
+                                            {formatToLakhs(Number(transaction.amount))}
+                                          </p>
+                                          <span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] ${
+                                            transaction.payment_type === 'White' 
+                                              ? 'bg-green-100 text-green-800' 
+                                              : 'bg-gray-800 text-white'
+                                          }`}>
+                                            {transaction.payment_type}
+                                          </span>
+                                        </div>
+                                        <p className="text-gray-600 text-[11px] mb-0.5 truncate" title={transaction.description}>
+                                          {transaction.description}
                                         </p>
-                                        <p className="text-gray-600">{transaction.description}</p>
-                                        <p className="text-gray-600">{transaction.category}</p>
-                                        <p className="text-gray-600">
+                                        <p className="text-gray-500 text-[10px]">{transaction.category}</p>
+                                        <p className="text-gray-500 text-[10px] truncate">
                                           {partners.find(p => p.id === transaction.partner_id)?.name}
                                         </p>
-                                        <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs ${
-                                          transaction.payment_type === 'White' 
-                                            ? 'bg-green-100 text-green-800' 
-                                            : 'bg-gray-800 text-white'
-                                        }`}>
-                                          {transaction.payment_type}
-                                        </span>
                                       </div>
                                     ))}
                                   </div>
@@ -1945,7 +1949,7 @@ function App() {
                           {/* Debits */}
                           <div className="flex justify-start items-center">
                             {dayTransactions.debits.length > 0 && (
-                              <div className="group relative">
+                              <div className="group relative"> {/* Add relative positioning here */}
                                 <div className="flex items-center">
                                   <div className="w-4 h-0.5 bg-gray-200" />
                                   <div className="bg-red-100 text-red-800 px-3 py-2 rounded-lg flex items-center justify-center cursor-pointer transform transition-transform group-hover:scale-105">
@@ -1956,31 +1960,35 @@ function App() {
                                 </div>
 
                                 {/* Debits Hover Card */}
-                                <div className={`${getHoverCardPosition(false)} w-64 max-h-[300px] overflow-y-auto bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20`}>
-                                  <div className="text-sm space-y-2">
+                                <div className={`${getHoverCardPosition(false)} w-40 max-h-[80vh] overflow-y-auto bg-white rounded-lg shadow-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity z-50 border border-gray-200`}>
+                                  <div className="text-xs space-y-3">
                                     {dayTransactions.debits.map((transaction) => (
                                       <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
-                                        <p className="font-medium text-gray-800">
-                                          {formatToLakhs(Number(transaction.amount))}
+                                        <div className="flex justify-between items-start mb-1">
+                                          <p className="font-medium text-gray-800">
+                                            {formatToLakhs(Number(transaction.amount))}
+                                          </p>
+                                          <span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] ${
+                                            transaction.payment_type === 'White' 
+                                              ? 'bg-green-100 text-green-800' 
+                                              : 'bg-gray-800 text-white'
+                                          }`}>
+                                            {transaction.payment_type}
+                                          </span>
+                                        </div>
+                                        <p className="text-gray-600 text-[11px] mb-0.5 truncate" title={transaction.description}>
+                                          {transaction.description}
                                         </p>
-                                        <p className="text-gray-600">{transaction.description}</p>
-                                        <p className="text-gray-600">{transaction.category}</p>
+                                        <p className="text-gray-500 text-[10px]">{transaction.category}</p>
                                         {transaction.files?.length > 0 && (
                                           <button
                                             onClick={() => handleViewFile(transaction)}
-                                            className="text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1 mt-1"
+                                            className="text-blue-600 hover:text-blue-800 text-[10px] flex items-center gap-1 mt-0.5"
                                           >
-                                            <FileText size={16} />
+                                            <FileText size={12} />
                                             View Proof
                                           </button>
                                         )}
-                                        <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs ${
-                                          transaction.payment_type === 'White' 
-                                            ? 'bg-green-100 text-green-800' 
-                                            : 'bg-gray-800 text-white'
-                                        }`}>
-                                          {transaction.payment_type}
-                                        </span>
                                       </div>
                                     ))}
                                   </div>
