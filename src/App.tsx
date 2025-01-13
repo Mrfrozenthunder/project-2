@@ -73,30 +73,30 @@ function App() {
   const [summaryTransactionType, setSummaryTransactionType] = useState<'all' | 'credit' | 'debit'>('all');
 
   // Extract loadData function outside of useEffect
-  const loadData = async () => {
+    const loadData = async () => {
     if (!user) return;
     
-    try {
-      // Load partners
-      const { data: partnersData, error: partnersError } = await supabase
-        .from('partners')
-        .select('*')
-        .eq('user_id', user.id);
+      try {
+        // Load partners
+        const { data: partnersData, error: partnersError } = await supabase
+          .from('partners')
+          .select('*')
+          .eq('user_id', user.id);
 
-      if (partnersError) throw partnersError;
-      setPartners(partnersData || []);
+        if (partnersError) throw partnersError;
+        setPartners(partnersData || []);
 
-      // Load transactions
-      const { data: transactionsData, error: transactionsError } = await supabase
-        .from('transactions')
-        .select(`
-          *,
-          files (*)
-        `)
-        .eq('user_id', user.id);
+        // Load transactions
+        const { data: transactionsData, error: transactionsError } = await supabase
+          .from('transactions')
+          .select(`
+            *,
+            files (*)
+          `)
+          .eq('user_id', user.id);
 
-      if (transactionsError) throw transactionsError;
-      setTransactions(transactionsData || []);
+        if (transactionsError) throw transactionsError;
+        setTransactions(transactionsData || []);
 
       // Load activity logs
       const { data: logsData, error: logsError } = await supabase
@@ -107,10 +107,10 @@ function App() {
 
       if (logsError) throw logsError;
       setLogs(logsData || []);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    }
-  };
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
 
   // Use loadData in useEffect
   useEffect(() => {
@@ -210,7 +210,7 @@ function App() {
 
     // If we never hit negative balance, return infinite runway
     if (!isRunwayExhausted) {
-      return {
+    return {
         days: Infinity,
         isRunwayExhausted: false,
         lastSustainableDate: new Date('9999-12-31'),
@@ -398,10 +398,10 @@ function App() {
         .insert([
           {
             amount,
-            type: activeTab,
-            category,
+          type: activeTab,
+          category,
             description,
-            partner_id: activeTab === 'credit' ? selectedPartnerId : null,
+          partner_id: activeTab === 'credit' ? selectedPartnerId : null,
             date: transactionDate,
             user_id: user.id,
             payment_type: paymentType
@@ -604,8 +604,8 @@ function App() {
         .from('activity_logs')
         .insert({
           user_id: user.id,
-          action,
-          details,
+      action,
+      details,
           timestamp: new Date().toISOString()
         })
         .select()
@@ -613,7 +613,7 @@ function App() {
 
       if (error) throw error;
 
-      setLogs(prev => [newLog, ...prev]);
+    setLogs(prev => [newLog, ...prev]);
     } catch (error) {
       console.error('Error adding log entry:', error);
     }
@@ -983,13 +983,13 @@ function App() {
             <div className="h-1 w-32 bg-blue-600 mx-auto rounded-full"></div>
           </div>
           <div className="w-10"> {/* Width matches left empty div */}
-            <button
-              onClick={() => signOut()}
+          <button
+            onClick={() => signOut()}
               className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors"
               title="Sign Out"
-            >
-              <LogOut size={20} />
-            </button>
+          >
+            <LogOut size={20} />
+          </button>
           </div>
         </div>
 
@@ -998,7 +998,7 @@ function App() {
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Overall Summary</h2>
           
           {/* Combined Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             {/* Combined Pool Balance */}
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6">
               <h2 className="text-xl font-semibold text-blue-800 mb-4 text-center">Combined Pool Balance</h2>
@@ -1018,9 +1018,9 @@ function App() {
                   }`}>
                     {formatToLakhs(calculateTodayBalance(transactions))}
                   </p>
-                </div>
               </div>
             </div>
+          </div>
 
             {/* White Pool Balance */}
             <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6">
@@ -1042,8 +1042,8 @@ function App() {
                     {formatToLakhs(calculatePoolBalance(transactions, 'White'))}
                   </p>
                 </div>
-              </div>
             </div>
+          </div>
 
             {/* Black Pool Balance */}
             <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-6">
@@ -1056,15 +1056,15 @@ function App() {
                   Credits: <span className="text-gray-100">{formatToLakhs(blackTotals.totalCredits)}</span>
                   <br />
                   Debits: <span className="text-red-400">{formatToLakhs(blackTotals.totalDebits)}</span>
-                </div>
+              </div>
                 <div className="mt-4 pt-4 border-t border-gray-700">
                   <p className="text-sm font-medium text-gray-300">Today's Black Balance</p>
                   <p className={`text-lg font-semibold ${
                     calculatePoolBalance(transactions, 'Black') >= 0 ? 'text-gray-100' : 'text-red-400'
                   }`}>
                     {formatToLakhs(calculatePoolBalance(transactions, 'Black'))}
-                  </p>
-                </div>
+              </p>
+            </div>
               </div>
             </div>
           </div>
@@ -1105,7 +1105,7 @@ function App() {
                 <p className="text-3xl font-bold text-blue-600">{futureNeeds.length} dates</p>
                 <div className="mt-2 h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
                      style={{ scrollbarWidth: 'thin' }}>
-                  {futureNeeds.map((need, index) => (
+                    {futureNeeds.map((need, index) => (
                     <div key={index} className="text-sm p-1">
                       <span className="text-gray-600">{formatDate(need.date)}:</span>
                       <span className="text-red-600 font-medium ml-2">
@@ -1161,7 +1161,7 @@ function App() {
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-800">Partners</h2>
+            <h2 className="text-lg font-semibold text-gray-800">Partners</h2>
             </div>
             <button
               onClick={() => setShowAddPartner(true)}
@@ -1183,12 +1183,12 @@ function App() {
 
               return (
                 <div key={partner.id} className="bg-gray-50 rounded-lg p-4 relative group">
-                  <button
-                    onClick={() => setShowDeleteConfirm({ type: 'partner', id: partner.id })}
-                    className="absolute top-2 right-2 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                <button
+                  onClick={() => setShowDeleteConfirm({ type: 'partner', id: partner.id })}
+                  className="absolute top-2 right-2 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 size={16} />
+                </button>
                   
                   {/* Partner Name and Total */}
                   <div className="mb-3">
@@ -1196,10 +1196,10 @@ function App() {
                     <p className="text-green-600 font-bold text-lg">
                       {formatToLakhs(Number(partner.total))}
                     </p>
-                    <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500">
                       {((Number(partner.total) / (totalCredits || 1)) * 100).toFixed(1)}% of total pool
-                    </p>
-                  </div>
+                </p>
+              </div>
 
                   {/* Contribution Breakdown */}
                   <div className="space-y-2">
@@ -1273,23 +1273,23 @@ function App() {
               <>
                 {/* First Row */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label htmlFor="partner" className="block text-sm font-medium text-gray-700 mb-1">
-                      Select Partner
-                    </label>
-                    <select
-                      id="partner"
-                      value={selectedPartnerId}
-                      onChange={(e) => setSelectedPartnerId(e.target.value)}
-                      className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="">Select a partner</option>
-                      {partners.map(partner => (
-                        <option key={partner.id} value={partner.id}>{partner.name}</option>
-                      ))}
-                    </select>
-                  </div>
+              <div>
+                <label htmlFor="partner" className="block text-sm font-medium text-gray-700 mb-1">
+                  Select Partner
+                </label>
+                <select
+                  id="partner"
+                  value={selectedPartnerId}
+                  onChange={(e) => setSelectedPartnerId(e.target.value)}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Select a partner</option>
+                  {partners.map(partner => (
+                    <option key={partner.id} value={partner.id}>{partner.name}</option>
+                  ))}
+                </select>
+              </div>
                   <div>
                     <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
                       Amount
@@ -1393,23 +1393,23 @@ function App() {
               <>
                 {/* First Row */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
-                      Amount
-                    </label>
-                    <div className="relative">
-                      <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                      <input
-                        type="number"
-                        id="amount"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        className="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        placeholder="0.00"
-                        required
-                      />
-                    </div>
-                  </div>
+              <div>
+                <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount
+                </label>
+                <div className="relative">
+                  <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="number"
+                    id="amount"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+              </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Payment Type
@@ -1439,70 +1439,70 @@ function App() {
                       </button>
                     </div>
                   </div>
-                  <div>
-                    <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
-                      Date
-                    </label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                      <input
-                        type="date"
-                        id="date"
-                        value={transactionDate}
-                        onChange={(e) => setTransactionDate(e.target.value)}
-                        className="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
-                  </div>
+              <div>
+                <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+                  Date
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="date"
+                    id="date"
+                    value={transactionDate}
+                    onChange={(e) => setTransactionDate(e.target.value)}
+                    className="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+              </div>
                 </div>
 
                 {/* Second Row */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-                      Category
-                    </label>
-                    <input
-                      type="text"
-                      id="category"
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      placeholder="Enter category"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                      Description
-                    </label>
-                    <input
-                      type="text"
-                      id="description"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                      placeholder="Enter description"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="file" className="block text-sm font-medium text-gray-700 mb-1">
+              <div>
+                <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+                  Category
+                </label>
+                <input
+                  type="text"
+                  id="category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="Enter category"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="Enter description"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="file" className="block text-sm font-medium text-gray-700 mb-1">
                       Expense Proof
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="file"
-                        id="file"
-                        ref={fileInputRef}
-                        accept=".pdf,image/*"
-                        onChange={handleFileChange}
-                        className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                      />
-                      <FileUp className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                    </div>
-                  </div>
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    id="file"
+                    ref={fileInputRef}
+                    accept=".pdf,image/*"
+                    onChange={handleFileChange}
+                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  <FileUp className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                </div>
+              </div>
                 </div>
               </>
             )}
@@ -1526,87 +1526,87 @@ function App() {
               <h2 className="text-xl font-semibold text-green-600">Credit History</h2>
               <div className="flex gap-2">
                 <div className="relative" ref={creditSortRef}>
-                  <button
-                    onClick={() => {
-                      setShowCreditSort(!showCreditSort);
-                      setShowCreditFilter(false);
-                    }}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
-                    <SortDesc size={20} className="text-gray-600" />
-                  </button>
-                  {showCreditSort && (
-                    <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg p-2 z-10 min-w-[200px]">
-                      <button
-                        onClick={() => setCreditSortOption('date-desc')}
-                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
-                          creditSortOption === 'date-desc' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        Date (Newest First)
-                      </button>
-                      <button
-                        onClick={() => setCreditSortOption('date-asc')}
-                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
-                          creditSortOption === 'date-asc' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        Date (Oldest First)
-                      </button>
-                      <button
-                        onClick={() => setCreditSortOption('amount-desc')}
-                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
-                          creditSortOption === 'amount-desc' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        Amount (High to Low)
-                      </button>
-                      <button
-                        onClick={() => setCreditSortOption('amount-asc')}
-                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
-                          creditSortOption === 'amount-asc' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        Amount (Low to High)
-                      </button>
-                    </div>
-                  )}
+                <button
+                  onClick={() => {
+                    setShowCreditSort(!showCreditSort);
+                    setShowCreditFilter(false);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <SortDesc size={20} className="text-gray-600" />
+                </button>
+                {showCreditSort && (
+                  <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg p-2 z-10 min-w-[200px]">
+                    <button
+                      onClick={() => setCreditSortOption('date-desc')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
+                        creditSortOption === 'date-desc' ? 'bg-gray-100' : ''
+                      }`}
+                    >
+                      Date (Newest First)
+                    </button>
+                    <button
+                      onClick={() => setCreditSortOption('date-asc')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
+                        creditSortOption === 'date-asc' ? 'bg-gray-100' : ''
+                      }`}
+                    >
+                      Date (Oldest First)
+                    </button>
+                    <button
+                      onClick={() => setCreditSortOption('amount-desc')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
+                        creditSortOption === 'amount-desc' ? 'bg-gray-100' : ''
+                      }`}
+                    >
+                      Amount (High to Low)
+                    </button>
+                    <button
+                      onClick={() => setCreditSortOption('amount-asc')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
+                        creditSortOption === 'amount-asc' ? 'bg-gray-100' : ''
+                      }`}
+                    >
+                      Amount (Low to High)
+                    </button>
+                  </div>
+                )}
                 </div>
                 <div className="relative" ref={creditFilterRef}>
-                  <button
-                    onClick={() => {
-                      setShowCreditFilter(!showCreditFilter);
-                      setShowCreditSort(false);
-                    }}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
-                    <Filter size={20} className="text-gray-600" />
-                  </button>
-                  {showCreditFilter && (
-                    <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg p-2 z-10 min-w-[200px]">
+                <button
+                  onClick={() => {
+                    setShowCreditFilter(!showCreditFilter);
+                    setShowCreditSort(false);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <Filter size={20} className="text-gray-600" />
+                </button>
+                {showCreditFilter && (
+                  <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg p-2 z-10 min-w-[200px]">
                       <div className="mb-2 border-b pb-2">
                         <p className="px-4 py-1 text-sm font-medium text-gray-700">Categories</p>
-                        {creditCategories.map(category => (
-                          <label
-                            key={category}
-                            className="flex items-center px-4 py-2 hover:bg-gray-100 rounded cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={creditSelectedCategories.includes(category)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setCreditSelectedCategories([...creditSelectedCategories, category]);
-                                } else {
-                                  setCreditSelectedCategories(creditSelectedCategories.filter(c => c !== category));
-                                }
-                              }}
-                              className="mr-2"
-                            />
-                            {category}
-                          </label>
-                        ))}
-                      </div>
+                    {creditCategories.map(category => (
+                      <label
+                        key={category}
+                        className="flex items-center px-4 py-2 hover:bg-gray-100 rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={creditSelectedCategories.includes(category)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setCreditSelectedCategories([...creditSelectedCategories, category]);
+                            } else {
+                              setCreditSelectedCategories(creditSelectedCategories.filter(c => c !== category));
+                            }
+                          }}
+                          className="mr-2"
+                        />
+                        {category}
+                      </label>
+                    ))}
+                  </div>
                       <div>
                         <p className="px-4 py-1 text-sm font-medium text-gray-700">Partners</p>
                         {partners.map(partner => (
@@ -1629,7 +1629,7 @@ function App() {
                             {partner.name}
                           </label>
                         ))}
-                      </div>
+              </div>
                       <div className="mb-2 border-b pb-2">
                         <p className="px-4 py-1 text-sm font-medium text-gray-700">Payment Type</p>
                         {['White', 'Black'].map(type => (
@@ -1652,8 +1652,8 @@ function App() {
                             {type}
                           </label>
                         ))}
-                      </div>
-                    </div>
+                  </div>
+                </div>
                   )}
                 </div>
               </div>
@@ -1672,86 +1672,86 @@ function App() {
               <h2 className="text-xl font-semibold text-red-600">Debit History</h2>
               <div className="flex gap-2">
                 <div className="relative" ref={debitSortRef}>
-                  <button
-                    onClick={() => {
-                      setShowDebitSort(!showDebitSort);
-                      setShowDebitFilter(false);
-                    }}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
-                    <SortDesc size={20} className="text-gray-600" />
-                  </button>
-                  {showDebitSort && (
-                    <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg p-2 z-10 min-w-[200px]">
-                      <button
-                        onClick={() => setDebitSortOption('date-desc')}
-                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
-                          debitSortOption === 'date-desc' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        Date (Newest First)
-                      </button>
-                      <button
-                        onClick={() => setDebitSortOption('date-asc')}
-                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
-                          debitSortOption === 'date-asc' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        Date (Oldest First)
-                      </button>
-                      <button
-                        onClick={() => setDebitSortOption('amount-desc')}
-                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
-                          debitSortOption === 'amount-desc' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        Amount (High to Low)
-                      </button>
-                      <button
-                        onClick={() => setDebitSortOption('amount-asc')}
-                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
-                          debitSortOption === 'amount-asc' ? 'bg-gray-100' : ''
-                        }`}
-                      >
-                        Amount (Low to High)
-                      </button>
-                    </div>
-                  )}
+                <button
+                  onClick={() => {
+                    setShowDebitSort(!showDebitSort);
+                    setShowDebitFilter(false);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <SortDesc size={20} className="text-gray-600" />
+                </button>
+                {showDebitSort && (
+                  <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg p-2 z-10 min-w-[200px]">
+                    <button
+                      onClick={() => setDebitSortOption('date-desc')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
+                        debitSortOption === 'date-desc' ? 'bg-gray-100' : ''
+                      }`}
+                    >
+                      Date (Newest First)
+                    </button>
+                    <button
+                      onClick={() => setDebitSortOption('date-asc')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
+                        debitSortOption === 'date-asc' ? 'bg-gray-100' : ''
+                      }`}
+                    >
+                      Date (Oldest First)
+                    </button>
+                    <button
+                      onClick={() => setDebitSortOption('amount-desc')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
+                        debitSortOption === 'amount-desc' ? 'bg-gray-100' : ''
+                      }`}
+                    >
+                      Amount (High to Low)
+                    </button>
+                    <button
+                      onClick={() => setDebitSortOption('amount-asc')}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 rounded ${
+                        debitSortOption === 'amount-asc' ? 'bg-gray-100' : ''
+                      }`}
+                    >
+                      Amount (Low to High)
+                    </button>
+                  </div>
+                )}
                 </div>
                 <div className="relative" ref={debitFilterRef}>
-                  <button
-                    onClick={() => {
-                      setShowDebitFilter(!showDebitFilter);
-                      setShowDebitSort(false);
-                    }}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
-                    <Filter size={20} className="text-gray-600" />
-                  </button>
-                  {showDebitFilter && (
-                    <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg p-2 z-10 min-w-[200px]">
+                <button
+                  onClick={() => {
+                    setShowDebitFilter(!showDebitFilter);
+                    setShowDebitSort(false);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <Filter size={20} className="text-gray-600" />
+                </button>
+                {showDebitFilter && (
+                  <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg p-2 z-10 min-w-[200px]">
                       <div className="mb-2 border-b pb-2">
                         <p className="px-4 py-1 text-sm font-medium text-gray-700">Categories</p>
-                        {debitCategories.map(category => (
-                          <label
-                            key={category}
-                            className="flex items-center px-4 py-2 hover:bg-gray-100 rounded cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={debitSelectedCategories.includes(category)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setDebitSelectedCategories([...debitSelectedCategories, category]);
-                                } else {
-                                  setDebitSelectedCategories(debitSelectedCategories.filter(c => c !== category));
-                                }
-                              }}
-                              className="mr-2"
-                            />
-                            {category}
-                          </label>
-                        ))}
+                    {debitCategories.map(category => (
+                      <label
+                        key={category}
+                        className="flex items-center px-4 py-2 hover:bg-gray-100 rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={debitSelectedCategories.includes(category)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setDebitSelectedCategories([...debitSelectedCategories, category]);
+                            } else {
+                              setDebitSelectedCategories(debitSelectedCategories.filter(c => c !== category));
+                            }
+                          }}
+                          className="mr-2"
+                        />
+                        {category}
+                      </label>
+                    ))}
                       </div>
                       <div>
                         <p className="px-4 py-1 text-sm font-medium text-gray-700">Payment Type</p>
@@ -1776,10 +1776,10 @@ function App() {
                           </label>
                         ))}
                       </div>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
+            </div>
             </div>
             <div className="h-[32rem] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
                  style={{ scrollbarWidth: 'thin' }}>
@@ -1807,12 +1807,12 @@ function App() {
                       </div>
                     </div>
                     <div className="flex items-start gap-3 h-full">
-                      <button
-                        onClick={() => setShowDeleteConfirm({ type: 'transaction', id: transaction.id })}
+                  <button
+                    onClick={() => setShowDeleteConfirm({ type: 'transaction', id: transaction.id })}
                         className="p-1.5 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-full hover:bg-red-50"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                  >
+                    <Trash2 size={16} />
+                  </button>
                       <div className="text-right flex flex-col justify-between h-full">
                         <p className="text-lg font-bold text-red-600" style={{ color: '#dc2626' }}>
                           {formatToLakhs(Number(transaction.amount))}
@@ -1823,7 +1823,7 @@ function App() {
                             : 'bg-gray-800 text-white'
                         }`}>
                           {transaction.payment_type}
-                        </span>
+                    </span>
                       </div>
                     </div>
                   </div>
@@ -1837,7 +1837,7 @@ function App() {
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           {/* Tab Headers */}
           <div className="flex gap-4 mb-6">
-            <button
+                      <button
               onClick={() => setTimelineView('timeline')}
               className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
                 timelineView === 'timeline'
@@ -1846,7 +1846,7 @@ function App() {
               }`}
             >
               Transaction Timeline
-            </button>
+                      </button>
             <button
               onClick={() => setTimelineView('summary')}
               className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
@@ -1867,7 +1867,7 @@ function App() {
             >
               Activity Log
             </button>
-          </div>
+                  </div>
 
           {/* Content */}
           {timelineView === 'timeline' ? (
@@ -1901,7 +1901,7 @@ function App() {
                           {/* Credits */}
                           <div className="flex justify-end items-center">
                             {dayTransactions.credits.length > 0 && (
-                              <div className="group relative"> {/* Add relative positioning here */}
+                              <div className="group relative inline-block"> {/* Add inline-block */}
                                 <div className="flex items-center">
                                   <div className="bg-green-100 text-green-800 px-3 py-2 rounded-lg flex items-center justify-center cursor-pointer transform transition-transform group-hover:scale-105">
                                     <span className="font-medium text-sm">
@@ -1912,7 +1912,7 @@ function App() {
                                 </div>
                                 
                                 {/* Credits Hover Card */}
-                                <div className={`${getHoverCardPosition(true)} w-40 max-h-[80vh] overflow-y-auto bg-white rounded-lg shadow-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity z-50 border border-gray-200`}>
+                                <div className={`${getHoverCardPosition(true)} w-40 max-h-[80vh] overflow-y-auto bg-white rounded-lg shadow-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity z-50 border border-gray-200 pointer-events-none`}> {/* Add pointer-events-none */}
                                   <div className="text-xs space-y-3">
                                     {dayTransactions.credits.map((transaction) => (
                                       <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
@@ -1934,14 +1934,14 @@ function App() {
                                         <p className="text-gray-500 text-[10px]">{transaction.category}</p>
                                         <p className="text-gray-500 text-[10px] truncate">
                                           {partners.find(p => p.id === transaction.partner_id)?.name}
-                                        </p>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
                               </div>
                             )}
-                          </div>
+        </div>
 
                           {/* Center point */}
                           <div className="w-3 h-3 bg-gray-300 rounded-full self-center" />
@@ -1949,7 +1949,7 @@ function App() {
                           {/* Debits */}
                           <div className="flex justify-start items-center">
                             {dayTransactions.debits.length > 0 && (
-                              <div className="group relative"> {/* Add relative positioning here */}
+                              <div className="group relative inline-block"> {/* Add inline-block */}
                                 <div className="flex items-center">
                                   <div className="w-4 h-0.5 bg-gray-200" />
                                   <div className="bg-red-100 text-red-800 px-3 py-2 rounded-lg flex items-center justify-center cursor-pointer transform transition-transform group-hover:scale-105">
@@ -1960,7 +1960,7 @@ function App() {
                                 </div>
 
                                 {/* Debits Hover Card */}
-                                <div className={`${getHoverCardPosition(false)} w-40 max-h-[80vh] overflow-y-auto bg-white rounded-lg shadow-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity z-50 border border-gray-200`}>
+                                <div className={`${getHoverCardPosition(false)} w-40 max-h-[80vh] overflow-y-auto bg-white rounded-lg shadow-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity z-50 border border-gray-200 pointer-events-none`}> {/* Add pointer-events-none */}
                                   <div className="text-xs space-y-3">
                                     {dayTransactions.debits.map((transaction) => (
                                       <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
@@ -2004,18 +2004,18 @@ function App() {
               </div>
             </>
           ) : timelineView === 'activity' ? (
-            <div className="space-y-4">
+          <div className="space-y-4">
               {logs.length > 0 ? (
                 logs.map((log) => (
-                  <div key={log.id} className="flex items-start gap-4 text-sm">
-                    <div className="text-gray-500 whitespace-nowrap">
+              <div key={log.id} className="flex items-start gap-4 text-sm">
+                <div className="text-gray-500 whitespace-nowrap">
                       {formatDateTime(log.timestamp)}
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-700">{log.action}</span>
-                      <span className="text-gray-600"> - {log.details}</span>
-                    </div>
-                  </div>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">{log.action}</span>
+                  <span className="text-gray-600"> - {log.details}</span>
+                </div>
+              </div>
                 ))
               ) : (
                 <div className="text-center text-gray-500">No activity logs yet</div>
@@ -2141,77 +2141,77 @@ function App() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Add Partner Modal */}
-        {showAddPartner && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Add New Partner</h3>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                if (newPartnerName.trim()) {
-                  handleAddPartner(newPartnerName.trim());
-                  setNewPartnerName('');
-                  setShowAddPartner(false);
-                }
-              }}>
-                <input
-                  type="text"
-                  value={newPartnerName}
-                  onChange={(e) => setNewPartnerName(e.target.value)}
-                  placeholder="Enter partner name"
-                  className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 mb-4"
-                  required
-                />
-                <div className="flex justify-end gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddPartner(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-                  >
-                    Add Partner
-                  </button>
-                </div>
-              </form>
-            </div>
           </div>
-        )}
+        </div>
+          )}
+      </div>
 
-        {/* Delete Confirmation Modal */}
-        {showDeleteConfirm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Confirm Deletion</h3>
-              <p className="text-gray-600 mb-6">
-                Are you sure you want to delete this {showDeleteConfirm.type}? This action cannot be undone.
-              </p>
+      {/* Add Partner Modal */}
+      {showAddPartner && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Add New Partner</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (newPartnerName.trim()) {
+                handleAddPartner(newPartnerName.trim());
+                setNewPartnerName('');
+                setShowAddPartner(false);
+              }
+            }}>
+              <input
+                type="text"
+                value={newPartnerName}
+                onChange={(e) => setNewPartnerName(e.target.value)}
+                placeholder="Enter partner name"
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 mb-4"
+                required
+              />
               <div className="flex justify-end gap-4">
                 <button
-                  onClick={() => setShowDeleteConfirm(null)}
+                  type="button"
+                  onClick={() => setShowAddPartner(false)}
                   className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleDeleteConfirm}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
                 >
-                  Delete
+                  Add Partner
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Confirm Deletion</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this {showDeleteConfirm.type}? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+              >
+                Delete
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {/* Backup Restore Component */}
         <BackupRestore
