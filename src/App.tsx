@@ -4,9 +4,17 @@ import { useAuth } from './contexts/AuthContext';
 import { Auth } from './components/Auth';
 import { supabase } from './lib/supabase';
 import type { Partner, Transaction, FileRecord, LogEntry, RunwayInfo, FundingNeed, ActivityLog } from './types/database';
+import { BackupRestore } from './components/BackupRestore';
 
 // Add file size constant at the top with other constants
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
+
+// Add this helper function at the top of your file
+const getHoverCardPosition = (isCredit: boolean) => {
+  return isCredit 
+    ? "absolute top-0 right-[120%] transform -translate-y-1/2" 
+    : "absolute top-0 left-[120%] transform -translate-y-1/2";
+};
 
 function App() {
   const { user, signOut } = useAuth();
@@ -64,47 +72,49 @@ function App() {
   // Add these new states for summary filters
   const [summaryTransactionType, setSummaryTransactionType] = useState<'all' | 'credit' | 'debit'>('all');
 
-  // Load data from Supabase
+  // Extract loadData function outside of useEffect
+  const loadData = async () => {
+    if (!user) return;
+    
+    try {
+      // Load partners
+      const { data: partnersData, error: partnersError } = await supabase
+        .from('partners')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (partnersError) throw partnersError;
+      setPartners(partnersData || []);
+
+      // Load transactions
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          files (*)
+        `)
+        .eq('user_id', user.id);
+
+      if (transactionsError) throw transactionsError;
+      setTransactions(transactionsData || []);
+
+      // Load activity logs
+      const { data: logsData, error: logsError } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('timestamp', { ascending: false });
+
+      if (logsError) throw logsError;
+      setLogs(logsData || []);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+  };
+
+  // Use loadData in useEffect
   useEffect(() => {
     if (!user) return;
-
-    const loadData = async () => {
-      try {
-        // Load partners
-        const { data: partnersData, error: partnersError } = await supabase
-          .from('partners')
-          .select('*')
-          .eq('user_id', user.id);
-
-        if (partnersError) throw partnersError;
-        setPartners(partnersData || []);
-
-        // Load transactions
-        const { data: transactionsData, error: transactionsError } = await supabase
-          .from('transactions')
-          .select(`
-            *,
-            files (*)
-          `)
-          .eq('user_id', user.id);
-
-        if (transactionsError) throw transactionsError;
-        setTransactions(transactionsData || []);
-
-        // Load activity logs
-        const { data: logsData, error: logsError } = await supabase
-          .from('activity_logs')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('timestamp', { ascending: false });
-
-        if (logsError) throw logsError;
-        setLogs(logsData || []);
-      } catch (error) {
-        console.error('Error loading data:', error);
-      }
-    };
-
     loadData();
   }, [user]);
 
@@ -853,6 +863,111 @@ function App() {
   // Update the derived values
   const whiteTotals = calculateTotalPoolBalance(transactions, 'White');
   const blackTotals = calculateTotalPoolBalance(transactions, 'Black');
+
+  // Add this near your other imports
+  const handleRestore = async (data: { transactions: Transaction[], partners: Partner[] }) => {
+    if (!user) return;
+
+    try {
+      console.log('Starting data restoration...', {
+        partnersCount: data.partners.length,
+        transactionsCount: data.transactions.length
+      });
+      
+      // Delete existing data
+      const { error: deleteTransactionError } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (deleteTransactionError) {
+        console.error('Error deleting transactions:', deleteTransactionError);
+        throw new Error(`Failed to delete transactions: ${deleteTransactionError.message}`);
+      }
+
+      const { error: deletePartnerError } = await supabase
+        .from('partners')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (deletePartnerError) {
+        console.error('Error deleting partners:', deletePartnerError);
+        throw new Error(`Failed to delete partners: ${deletePartnerError.message}`);
+      }
+
+      // Insert partners first
+      console.log('Inserting partners...');
+      const partnersWithUserId = data.partners.map(p => {
+        // Create a new object without the id field
+        const { id, ...partnerWithoutId } = p;
+        return {
+          ...partnerWithoutId,
+          user_id: user.id,
+          created_at: new Date().toISOString()
+        };
+      });
+
+      const { data: insertedPartners, error: partnerError } = await supabase
+        .from('partners')
+        .insert(partnersWithUserId)
+        .select();
+
+      if (partnerError) {
+        console.error('Error inserting partners:', partnerError);
+        throw new Error(`Failed to insert partners: ${partnerError.message}`);
+      }
+
+      console.log('Partners inserted successfully', { insertedCount: insertedPartners?.length });
+
+      // Create partner ID mapping
+      const partnerIdMap = new Map(
+        data.partners.map((oldPartner, index) => [
+          oldPartner.id,
+          insertedPartners?.[index]?.id
+        ])
+      );
+
+      // Prepare transactions
+      console.log('Preparing transactions...');
+      const transactionsWithNewIds = data.transactions.map(t => {
+        // Create a new object without the id field
+        const { id, files, ...transactionWithoutId } = t;
+        return {
+          ...transactionWithoutId,
+          user_id: user.id,
+          partner_id: partnerIdMap.get(t.partner_id),
+          created_at: new Date().toISOString()
+        };
+      });
+
+      console.log('Inserting transactions...');
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert(transactionsWithNewIds);
+
+      if (transactionError) {
+        console.error('Error inserting transactions:', transactionError);
+        throw new Error(`Failed to insert transactions: ${transactionError.message}`);
+      }
+
+      console.log('Transactions inserted successfully');
+
+      // Reload data
+      await loadData();
+      
+      // Add log entry
+      await addLogEntry('Data Restored', 'Data restored from backup file');
+
+      console.log('Data restoration completed successfully');
+    } catch (error) {
+      console.error('Detailed restore error:', {
+        error,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined
+      });
+      throw error;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1797,7 +1912,7 @@ function App() {
                                 </div>
                                 
                                 {/* Credits Hover Card */}
-                                <div className="absolute top-full mt-2 right-[120%] w-30 bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                <div className={`${getHoverCardPosition(true)} w-64 max-h-[300px] overflow-y-auto bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20`}>
                                   <div className="text-sm space-y-2">
                                     {dayTransactions.credits.map((transaction) => (
                                       <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
@@ -1841,7 +1956,7 @@ function App() {
                                 </div>
 
                                 {/* Debits Hover Card */}
-                                <div className="absolute top-full mt-2 left-[120%] w-30 bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                <div className={`${getHoverCardPosition(false)} w-64 max-h-[300px] overflow-y-auto bg-white rounded-lg shadow-lg p-4 opacity-0 group-hover:opacity-100 transition-opacity z-20`}>
                                   <div className="text-sm space-y-2">
                                     {dayTransactions.debits.map((transaction) => (
                                       <div key={transaction.id} className="border-b last:border-0 pb-2 last:pb-0">
@@ -2089,6 +2204,13 @@ function App() {
             </div>
           </div>
         )}
+
+        {/* Backup Restore Component */}
+        <BackupRestore
+          transactions={transactions}
+          partners={partners}
+          onRestore={handleRestore}
+        />
       </div>
     </div>
   );
