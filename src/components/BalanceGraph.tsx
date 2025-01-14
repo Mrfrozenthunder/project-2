@@ -144,7 +144,13 @@ export const BalanceGraph: React.FC<BalanceGraphProps> = ({ transactions }) => {
           {/* Y-axis labels */}
           <div className="absolute left-0 top-0 bottom-8 w-24 flex flex-col justify-between text-sm text-gray-500">
             {yAxisTicks.map((tick, i) => (
-              <span key={i} className="text-right pr-2">
+              <span 
+                key={i} 
+                className="text-right pr-2 -translate-y-1/2 absolute right-0"
+                style={{
+                  top: `${((maxBalance + padding - tick) / (range + 2 * padding)) * 100}%`
+                }}
+              >
                 {formatToLakhs(tick, false)}
               </span>
             ))}

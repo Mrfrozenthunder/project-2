@@ -3,9 +3,10 @@ import { PlusCircle, MinusCircle, IndianRupee, Calendar, Eye, Trash2, Filter, So
 import { useAuth } from './contexts/AuthContext';
 import { Auth } from './components/Auth';
 import { supabase } from './lib/supabase';
-import type { Partner, Transaction, FileRecord, LogEntry, RunwayInfo, FundingNeed, ActivityLog } from './types/database';
+import type { Partner, Transaction, FileRecord, LogEntry, RunwayInfo, FundingNeed, ActivityLog, Note } from './types/database';
 import { BackupRestore } from './components/BackupRestore';
 import { BalanceGraph } from './components/BalanceGraph';
+import { Notes } from './components/Notes';
 
 // Add file size constant at the top with other constants
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
@@ -24,6 +25,7 @@ function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
 
   // Form state
   const [amount, setAmount] = useState('');
@@ -68,36 +70,36 @@ function App() {
   const debitFilterRef = useRef<HTMLDivElement>(null);
 
   // Add new state for active view
-  const [timelineView, setTimelineView] = useState<'timeline' | 'activity' | 'summary' | 'graph'>('timeline');
+  const [timelineView, setTimelineView] = useState<'timeline' | 'activity' | 'summary' | 'graph' | 'notes'>('timeline');
 
   // Add these new states for summary filters
   const [summaryTransactionType, setSummaryTransactionType] = useState<'all' | 'credit' | 'debit'>('all');
 
   // Extract loadData function outside of useEffect
-    const loadData = async () => {
+  const loadData = async () => {
     if (!user) return;
     
-      try {
-        // Load partners
-        const { data: partnersData, error: partnersError } = await supabase
-          .from('partners')
-          .select('*')
-          .eq('user_id', user.id);
+    try {
+      // Load partners
+      const { data: partnersData, error: partnersError } = await supabase
+        .from('partners')
+        .select('*')
+        .eq('user_id', user.id);
 
-        if (partnersError) throw partnersError;
-        setPartners(partnersData || []);
+      if (partnersError) throw partnersError;
+      setPartners(partnersData || []);
 
-        // Load transactions
-        const { data: transactionsData, error: transactionsError } = await supabase
-          .from('transactions')
-          .select(`
-            *,
-            files (*)
-          `)
-          .eq('user_id', user.id);
+      // Load transactions
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          files (*)
+        `)
+        .eq('user_id', user.id);
 
-        if (transactionsError) throw transactionsError;
-        setTransactions(transactionsData || []);
+      if (transactionsError) throw transactionsError;
+      setTransactions(transactionsData || []);
 
       // Load activity logs
       const { data: logsData, error: logsError } = await supabase
@@ -108,10 +110,50 @@ function App() {
 
       if (logsError) throw logsError;
       setLogs(logsData || []);
-      } catch (error) {
-        console.error('Error loading data:', error);
+
+      // First load notes
+      const { data: notesData, error: notesError } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('is_pinned', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (notesError) {
+        console.error('Error loading notes:', notesError);
+        throw notesError;
       }
-    };
+
+      // Then load tags for each note
+      const notesWithTags = await Promise.all((notesData || []).map(async (note) => {
+        const { data: tagData, error: tagError } = await supabase
+          .from('note_tags')
+          .select(`
+            tags (
+              id,
+              name,
+              created_at
+            )
+          `)
+          .eq('note_id', note.id);
+
+        if (tagError) {
+          console.error('Error loading tags for note:', tagError);
+          return note;
+        }
+
+        return {
+          ...note,
+          tags: tagData?.map(t => t.tags) || []
+        };
+      }));
+
+      console.log('Notes with tags:', notesWithTags);
+      setNotes(notesWithTags);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+  };
 
   // Use loadData in useEffect
   useEffect(() => {
@@ -970,6 +1012,122 @@ function App() {
     }
   };
 
+  // Notes handlers
+  const handleAddNote = async (note: Omit<Note, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+    if (!user) return;
+
+    try {
+      console.log('Adding note:', note);
+      // First, insert the note without tags
+      const { data: noteData, error: noteError } = await supabase
+        .from('notes')
+        .insert([{
+          title: note.title,
+          content: note.content,
+          is_archived: note.is_archived,
+          is_pinned: note.is_pinned,
+          user_id: user.id
+        }])
+        .select()
+        .single();
+
+      if (noteError) {
+        console.error('Error inserting note:', noteError);
+        throw noteError;
+      }
+      console.log('Added note:', noteData);
+
+      // Then, handle tags if they exist
+      if (note.tags && note.tags.length > 0) {
+        console.log('Adding tags:', note.tags);
+        
+        // Insert each tag one by one
+        for (const tag of note.tags) {
+          // First, create or get the tag
+          const { data: tagData, error: tagError } = await supabase
+            .from('tags')
+            .upsert({
+              name: tag.name,
+              user_id: user.id
+            }, {
+              onConflict: 'name,user_id'
+            })
+            .select()
+            .single();
+
+          if (tagError) {
+            console.error('Error upserting tag:', tagError);
+            continue;
+          }
+
+          // Then create the note-tag relationship
+          const { error: noteTagError } = await supabase
+            .from('note_tags')
+            .insert({
+              note_id: noteData.id,
+              tag_id: tagData.id
+            });
+
+          if (noteTagError) {
+            console.error('Error creating note-tag relationship:', noteTagError);
+          }
+        }
+      }
+
+      // Reload notes to get the updated data
+      await loadData();
+
+    } catch (error) {
+      console.error('Error adding note:', error);
+    }
+  };
+
+  const handleDeleteNote = async (id: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('notes')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error deleting note:', error);
+        throw error;
+      }
+
+      setNotes(notes.filter(note => note.id !== id));
+    } catch (error) {
+      console.error('Error deleting note:', error);
+    }
+  };
+
+  const handleUpdateNote = async (id: string, updates: Partial<Note>) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('notes')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error updating note:', error);
+        throw error;
+      }
+
+      // Reload notes to get the updated data
+      await loadData();
+    } catch (error) {
+      console.error('Error updating note:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto p-6">
@@ -1511,7 +1669,9 @@ function App() {
             <button
               type="submit"
               className={`w-full py-2 px-4 rounded-lg text-white font-medium ${
-                activeTab === 'credit' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
+                activeTab === 'credit'
+                  ? 'bg-green-600 hover:bg-green-700'
+                  : 'bg-red-600 hover:bg-red-700'
               }`}
             >
               Add {activeTab === 'credit' ? 'Credit' : 'Debit'}
@@ -1878,6 +2038,16 @@ function App() {
             >
               Activity
             </button>
+            <button
+              onClick={() => setTimelineView('notes')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                timelineView === 'notes'
+                  ? 'bg-blue-100 text-blue-800'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Notes
+            </button>
                   </div>
 
           {/* Content */}
@@ -2155,7 +2325,44 @@ function App() {
           </div>
         </div>
           ) : timelineView === 'graph' ? (
-            <BalanceGraph transactions={transactions} />
+            <BalanceGraph 
+              margin={{ top: 50, right: 110, bottom: 50, left: 80 }}
+              axisLeft={{
+                tickSize: 5,
+                tickPadding: 10,
+                tickRotation: 0,
+                format: value => `₹${value}L`.padStart(7),
+                legend: 'Amount (Lakhs)',
+                legendOffset: -60,
+                legendPosition: 'middle',
+                tickOffset: 0,
+                renderTick: ({ x, y, value, format }) => (
+                  <g transform={`translate(${x},${y})`}>
+                    <line x2={-5} stroke="currentColor" />
+                    <text
+                      x={-10}
+                      y={0}
+                      dy="0.32em"
+                      style={{
+                        dominantBaseline: 'middle',
+                        textAnchor: 'end',
+                        fontSize: '12px'
+                      }}
+                    >
+                      {format(value)}
+                    </text>
+                  </g>
+                )
+              }}
+              transactions={transactions} 
+            />
+          ) : timelineView === 'notes' ? (
+            <Notes
+              notes={notes}
+              onAddNote={handleAddNote}
+              onDeleteNote={handleDeleteNote}
+              onUpdateNote={handleUpdateNote}
+            />
           ) : (
             // Timeline view content (default)
             <div>
