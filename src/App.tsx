@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PlusCircle, MinusCircle, IndianRupee, Calendar, Eye, Trash2, Filter, SortDesc, FileUp, UserPlus, AlertCircle, LogOut, Paperclip, FileText } from 'lucide-react';
+import { PlusCircle, MinusCircle, IndianRupee, Calendar, Eye, Trash2, Filter, SortDesc, FileUp, UserPlus, AlertCircle, LogOut, Paperclip, FileText, Edit } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
 import { Auth } from './components/Auth';
 import { supabase } from './lib/supabase';
@@ -72,6 +72,9 @@ function App() {
 
   // Add these new states for summary filters
   const [summaryTransactionType, setSummaryTransactionType] = useState<'all' | 'credit' | 'debit'>('all');
+
+  // Add new state for editing transaction
+  const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
 
   // Extract loadData function outside of useEffect
     const loadData = async () => {
@@ -399,10 +402,10 @@ function App() {
         .insert([
           {
             amount,
-          type: activeTab,
-          category,
+            type: activeTab,
+            category,
             description,
-          partner_id: activeTab === 'credit' ? selectedPartnerId : null,
+            partner_id: activeTab === 'credit' ? selectedPartnerId : null,
             date: transactionDate,
             user_id: user.id,
             payment_type: paymentType
@@ -425,18 +428,7 @@ function App() {
       }
 
       // Update transactions state immediately
-      setTransactions(prev => {
-        const updatedTransactions = [...prev];
-        const existingIndex = updatedTransactions.findIndex(t => t.id === newTransaction.id);
-        
-        if (existingIndex >= 0) {
-          updatedTransactions[existingIndex] = newTransaction;
-        } else {
-          updatedTransactions.push(newTransaction);
-        }
-        
-        return updatedTransactions;
-      });
+      setTransactions(prev => [...prev, newTransaction]);
 
       // Update partners state immediately for credit transactions
       if (activeTab === 'credit' && selectedPartnerId) {
@@ -684,6 +676,12 @@ function App() {
           </div>
         </div>
         <div className="flex items-start gap-3 h-full">
+          <button
+            onClick={() => setEditTransaction(transaction)}
+            className="p-1.5 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-full hover:bg-blue-50"
+          >
+            <Edit size={16} />
+          </button>
           <button
             onClick={() => setShowDeleteConfirm({ type: 'transaction', id: transaction.id })}
             className="p-1.5 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-full hover:bg-red-50"
@@ -967,6 +965,59 @@ function App() {
         errorStack: error instanceof Error ? error.stack : undefined
       });
       throw error;
+    }
+  };
+
+  // Add this function to handle form submission for editing
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !editTransaction) return;
+
+    try {
+      const originalTransaction = transactions.find(t => t.id === editTransaction.id);
+      if (!originalTransaction) return;
+
+      const { data: updatedTransaction, error: transactionError } = await supabase
+        .from('transactions')
+        .update({
+          amount: editTransaction.amount,
+          type: editTransaction.type,
+          category: editTransaction.category,
+          description: editTransaction.description,
+          partner_id: editTransaction.partner_id,
+          date: editTransaction.date,
+          payment_type: editTransaction.payment_type
+        })
+        .eq('id', editTransaction.id)
+        .select(`
+          *,
+          files (*)
+        `)
+        .single();
+
+      if (transactionError) throw transactionError;
+
+      // Update transactions state immediately
+      setTransactions(prev => prev.map(t => t.id === updatedTransaction.id ? updatedTransaction : t));
+
+      // Update partners state immediately for credit transactions
+      if (originalTransaction.type === 'credit' && originalTransaction.partner_id) {
+        const amountDifference = Number(editTransaction.amount) - Number(originalTransaction.amount);
+        setPartners(prev => prev.map(partner => {
+          if (partner.id === originalTransaction.partner_id) {
+            return {
+              ...partner,
+              total: Number(partner.total) + amountDifference
+            };
+          }
+          return partner;
+        }));
+      }
+
+      // Reset edit transaction state
+      setEditTransaction(null);
+    } catch (error) {
+      console.error('Error updating transaction:', error);
     }
   };
 
@@ -1809,6 +1860,12 @@ function App() {
                     </div>
                     <div className="flex items-start gap-3 h-full">
                   <button
+                    onClick={() => setEditTransaction(transaction)}
+                    className="p-1.5 text-gray-400 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-full hover:bg-blue-50"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
                     onClick={() => setShowDeleteConfirm({ type: 'transaction', id: transaction.id })}
                         className="p-1.5 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-full hover:bg-red-50"
                   >
@@ -2296,6 +2353,124 @@ function App() {
         </div>
       )}
 
+      {/* Edit Transaction Modal */}
+      {editTransaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-semibold text-gray-900 mb-4">Edit Transaction</h3>
+            <form onSubmit={handleEditSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="editAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                    Amount
+                  </label>
+                  <div className="relative">
+                    <IndianRupee className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                      type="number"
+                      id="editAmount"
+                      value={editTransaction.amount}
+                      onChange={(e) => setEditTransaction({ ...editTransaction, amount: e.target.value })}
+                      className="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="editCategory" className="block text-sm font-medium text-gray-700 mb-1">
+                    Category
+                  </label>
+                  <input
+                    type="text"
+                    id="editCategory"
+                    value={editTransaction.category}
+                    onChange={(e) => setEditTransaction({ ...editTransaction, category: e.target.value })}
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="Enter category"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="editDescription" className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    id="editDescription"
+                    value={editTransaction.description}
+                    onChange={(e) => setEditTransaction({ ...editTransaction, description: e.target.value })}
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="Enter description"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="editDate" className="block text-sm font-medium text-gray-700 mb-1">
+                    Date
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                      type="date"
+                      id="editDate"
+                      value={editTransaction.date}
+                      onChange={(e) => setEditTransaction({ ...editTransaction, date: e.target.value })}
+                      className="pl-10 w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Type
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditTransaction({ ...editTransaction, payment_type: 'White' })}
+                      className={`flex-1 py-2 px-3 rounded-lg ${
+                        editTransaction.payment_type === 'White'
+                          ? 'bg-blue-100 text-blue-700 border-2 border-blue-500'
+                          : 'bg-gray-100 text-gray-600 border-2 border-transparent'
+                      }`}
+                    >
+                      White
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditTransaction({ ...editTransaction, payment_type: 'Black' })}
+                      className={`flex-1 py-2 px-3 rounded-lg ${
+                        editTransaction.payment_type === 'Black'
+                          ? 'bg-blue-100 text-blue-700 border-2 border-blue-500'
+                          : 'bg-gray-100 text-gray-600 border-2 border-transparent'
+                      }`}
+                    >
+                      Black
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setEditTransaction(null)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
         {/* Backup Restore Component */}
         <BackupRestore
           transactions={transactions}
@@ -2308,3 +2483,4 @@ function App() {
 }
 
 export default App;
+/*fff*/
